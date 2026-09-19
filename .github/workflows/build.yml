@@ -1,0 +1,33 @@
+name: Build RootHide DEB
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract project
+        run: |
+          unzip InputBridge-RootHide.zip
+
+      - name: Setup Theos
+        uses: iossxx/theos-action@v1
+        with:
+          theos-src: https://github.com/roothide/theos
+          theos-sdks: https://github.com/theos/sdks
+
+      - name: Build
+        run: |
+          cd InputBridge-RootHide
+          make clean package THEOS_PACKAGE_SCHEME=roothide
+
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: InputBridge-RootHide
+          path: InputBridge-RootHide/packages/*.deb
