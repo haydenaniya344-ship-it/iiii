@@ -13,12 +13,12 @@ jobs:
 
       - name: Find and extract project ZIP
         run: |
-          ZIP_FILE="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
 
           echo "Using ZIP: $ZIP_FILE"
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "No ZIP file found in repository root."
+            echo "No ZIP file found."
             exit 1
           fi
 
@@ -26,18 +26,51 @@ jobs:
           mkdir -p extracted
           unzip "$ZIP_FILE" -d extracted
 
-          echo "Extracted files:"
-          find extracted -maxdepth 3 -type f | sort
-
       - name: Install RootHide Theos
         run: |
           echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
           export THEOS="$HOME/theos"
-
           bash -c "$(curl -fsSL https://raw.githubusercontent.com/roothide/theos/master/bin/install-theos)"
 
       - name: Find project
         run: |
-          PROJECT_DIR="$(find extracted -type f -name Makefile -printf '%h\n' | head -n 1)"
+          MAKEFILE_PATH=$(find extracted -type f -name Makefile | head -n 1)
 
-          echo "PROJECT
+          echo "Makefile: $MAKEFILE_PATH"
+
+          if [ -z "$MAKEFILE_PATH" ]; then
+            echo "Cannot find Makefile."
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$MAKEFILE_PATH")
+
+          echo "Project directory: $PROJECT_DIR"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: |
+          cd "$PROJECT_DIR"
+          pwd
+          make clean
+          make package THEOS_PACKAGE_SCHEME=roothide
+
+      - name: Collect DEB
+        run: |
+          rm -rf output
+          mkdir -p output
+
+          find extracted -type f -name "*.deb" -exec cp {} output/ \;
+
+          ls -lah output
+
+          if ! find output -type f -name "*.deb" | grep -q .; then
+            echo "No DEB generated."
+            exit 1
+          fi
+
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: InputBridge-RootHide
+          path: output/*.deb
