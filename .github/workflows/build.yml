@@ -11,24 +11,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract project
+      - name: Find and extract project ZIP
         run: |
-          unzip InputBridge-RootHide.zip
+          ZIP_FILE="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
+
+          echo "Using ZIP: $ZIP_FILE"
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No ZIP file found in repository root."
+            exit 1
+          fi
+
+          rm -rf extracted
+          mkdir -p extracted
+          unzip "$ZIP_FILE" -d extracted
+
+          echo "Extracted files:"
+          find extracted -maxdepth 3 -type f | sort
 
       - name: Install RootHide Theos
         run: |
           echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
           export THEOS="$HOME/theos"
+
           bash -c "$(curl -fsSL https://raw.githubusercontent.com/roothide/theos/master/bin/install-theos)"
 
-      - name: Build
+      - name: Find project
         run: |
-          cd InputBridge-RootHide
-          make clean
-          make package THEOS_PACKAGE_SCHEME=roothide
+          PROJECT_DIR="$(find extracted -type f -name Makefile -printf '%h\n' | head -n 1)"
 
-      - name: Upload DEB
-        uses: actions/upload-artifact@v4
-        with:
-          name: InputBridge-RootHide
-          path: InputBridge-RootHide/packages/*.deb
+          echo "PROJECT
